@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Paradgimas</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename= 'css/style.css') }}">
+</head>
+
+<body>
+    <table id="dataTable">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Title</th>
+                <th>Data</th>
+                <th>Selecionar</th>
+                <!-- Adicione mais colunas conforme necessário -->
+            </tr>
+        </thead>
+        <tbody>
+            <!-- Os dados da API serão exibidos aqui -->
+        </tbody>
+    </table>
+
+    <div id="pagination" class="pagination-container">
+        <button id="prevPage">Anterior</button>
+        <span id="currentPage">1</span>
+        <button id="nextPage">Próxima</button>
+    </div>
+
+    <br><br>
+
+    <table id="itensSelecionados">
+        <thead>
+            <th>ID</th>
+            <th>Title</th>
+            <th>Data</th>
+        </thead>
+    </table>
+
+    <div>
+        <button id="recomendacao">Recomendar</button>
+    </div>
+
+
+
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/3.1.9-1/crypto-js.js"></script>
+    <script src="{{ url_for('static', filename= 'js/jquery.js') }}"></script>
+    <script src="{{ url_for('static', filename= 'js/worker.js') }}"></script>
+
+
+    <script>
+        const key = "1b3b9179";
+        var paginaAtual = 1;
+        const url = "https://api.themoviedb.org/3/discover/movie?api_key=cfdd431aa71175eab089ab96641cd816&include_adult=false&include_video=false&language=pt-BR&sort_by=popularity.desc&page=";
+        const itensPorPagina = 20;
+        const totalPages = 100;
+        const filmesSelecionados = new Array(5);
+        let contadorDeFilmesSelecionados = 0;
+        var dadosDaAPI;
+
+        var sharedArrayBuffer = new SharedArrayBuffer(8192000)
+
+        buscaDadosNaApiEPopulaTabela()
+
+        $('#prevPage').on('click', function () {
+            if (paginaAtual > 1) {
+                paginaAtual--;
+                buscaDadosNaApiEPopulaTabela();
+            }
+        });
+
+
+        $('#nextPage').on('click', function () {
+            if (paginaAtual < totalPages) {
+
+                paginaAtual++;
+                buscaDadosNaApiEPopulaTabela();
+            }
+        });
+
+        function buscaDadosNaApiEPopulaTabela() {
+            // Fazer a solicitação usando o Axios
+            apiUrl = url + paginaAtual
+            axios.get(apiUrl)
+                .then(response => {
+                    // Processar os dados e popular a tabela
+                    dadosDaAPI = response.data;
+                    popularTabela(paginaAtual);
+                })
+                .catch(error => {
+                    console.error(`Error: ${error.message}`);
+                });
+        }
+
+        function popularTabela(pagina) {
+            id = 1 + (20 * (paginaAtual - 1))
+            var tabela = $('#dataTable tbody');
+            tabela.empty(); // Limpa a tabela antes de adicionar novos dados
+            // Itera sobre os dados paginados e adiciona linhas à tabela
+            $.each(dadosDaAPI.results, function (index, item) {
+                var linha = '<tr id=' + id + '>' +
+                    '<td data-id=' + id + '>' + item.id + '</td>' +
+                    '<td data-id=' + id + '>' + item.title + '</td>' +
+                    '<td data-id=' + id + '>' + item.release_date + '</td>' +
+                    '<td> <button onclick="PegaItemSelecionadoEPassaParaOutraTabela(event)">Adicionar</button> </td>'
+                // Adicione mais colunas conforme necessário
+                '</tr>';
+                id++;
+                tabela.append(linha);
+            });
+
+            // Atualiza o número da página atual na interface
+            $('#currentPage').text(pagina);
+        }
+
+        function PegaItemSelecionadoEPassaParaOutraTabela(event) {
+            const tabela = document.getElementById('itensSelecionados');
+            const numeroDeLinhas = tabela.rows.length;
+            if (numeroDeLinhas <= 5) {
+                const button = event.target;
+                const row = button.parentNode.parentNode;
+
+                // Adiciona a classe 'selected' à célula da tabela superior
+                const cells = row.getElementsByTagName('td');
+                for (const cell of cells) {
+                    cell.classList.add('selected');
+                }
+
+                const item = dadosDaAPI.results.find(objeto => objeto.id == cells[0].innerText)
+                filmesSelecionados[contadorDeFilmesSelecionados] = item
+                contadorDeFilmesSelecionados++;
+
+                // Cria uma nova linha na tabela inferior excluindo o botão
+                const newRow = document.getElementById('itensSelecionados').insertRow();
+                for (let i = 0; i < cells.length - 1; i++) {
+                    const cellClone = newRow.insertCell(i);
+                    cellClone.textContent = cells[i].textContent;
+                }
+
+                // Adiciona um botão "Remover" à nova linha na tabela inferior
+                const removeButtonCell = newRow.insertCell(cells.length - 1);
+                const removeButton = document.createElement('button');
+                removeButton.textContent = 'Remover';
+                removeButton.onclick = function () {
+                    removeItemDosSelecionas(newRow);
+                };
+                removeButtonCell.appendChild(removeButton);
+
+
+                // Opcional: você pode remover a linha da tabela superior se desejar
+                row.parentNode.removeChild(row);
+            } else {
+
+                alert("Ja foi selecionado a quantidade maxima de filmes! ");
+            }
+        }
+
+        function removeItemDosSelecionas(row) {
+
+            row.parentNode.removeChild(row);
+            contadorDeFilmesSelecionados--;
+        }
+
+
+        workers = []
+        numWorkers = 5
+        numPaginas = 100
+        async function buscaDados() {
+            const minhaPromessa = new Promise((resolve) => {
+                // Criar workers
+                for (let i = 0; i < numWorkers; i++) {
+                    const worker = new Worker('worker.js');
+                    workers.push(worker);
+                }
+                console.log(workers)
+            
+                const div = Math.ceil(numPaginas/numWorkers)
+                console.log(div)
+                let pagFinalInicial = div
+                console.log(pagFinalInicial)
+                let paginasWorkerFinal = numPaginas - (div*(numWorkers-1))
+                console.log(paginasWorkerFinal)
+                var data = {
+                    buffer: sharedArrayBuffer,
+                    index: 0,
+                    pagInicial: 1,
+                    pagFinal: pagFinalInicial,
+                };
+                for (let i = 0; i < numWorkers; i++) {
+                    console.log("Worker" + i)
+                    console.log(div)
+                    console.log("Index:"+data.index)
+                    console.log("Pagina Inicial:"+data.pagInicial)
+                    console.log("Pagina Final:"+data.pagFinal)
+                    workers[i].postMessage(data);
+                    if(i == (numWorkers-2)){
+                        data.pagInicial += div
+                        data.pagFinal += paginasWorkerFinal
+                        data.index = 40000 * (data.pagInicial-1)
+                    }else{
+                        data.pagInicial += div
+                        data.pagFinal += div
+                        data.index = 40000 * (data.pagInicial-1)
+                    }
+                }
+                resolve("Trabalho concluído!");
+            });
+            const resultado = await minhaPromessa;
+
+            // Isso será executado somente depois que a Promessa for resolvida
+            console.log("To Aqui")
+            let view = new Uint8Array(sharedArrayBuffer);
+            console.log("To Aqui aaaeeeeee")
+            console.log(view)
+        }
+
+        buscaDados()
+    </script>
+
+</body>
+
+</html>
