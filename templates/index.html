@@ -50,6 +50,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/3.1.9-1/crypto-js.js"></script>
     <script src="{{ url_for('static', filename= 'js/jquery.js') }}"></script>
     <script src="{{ url_for('static', filename= 'js/worker.js') }}"></script>
+    <script src="{{ url_for('static', filename= 'js/worker2.js') }}"></script>
 
 
     <script>
@@ -61,8 +62,10 @@
         const filmesSelecionados = new Array(5);
         let contadorDeFilmesSelecionados = 0;
         var dadosDaAPI;
+        let flag = 0
 
-        var sharedArrayBuffer = new SharedArrayBuffer(8192000)
+        var filmesBuscados = new SharedArrayBuffer(8192000)
+        var recomendacaoFilmes = new SharedArrayBuffer(5000)
 
         buscaDadosNaApiEPopulaTabela()
 
@@ -165,10 +168,16 @@
             contadorDeFilmesSelecionados--;
         }
 
+        $('#recomendacao').on('click', function () {
+            if (flag === 1) {
+                fazerRecomendacao()
+            }
+        });
+
 
         workers = []
         numWorkers = 5
-        numPaginas = 100
+        numPaginas = 5
         async function buscaDados() {
             const minhaPromessa = new Promise((resolve) => {
                 // Criar workers
@@ -185,7 +194,7 @@
                 let paginasWorkerFinal = numPaginas - (div*(numWorkers-1))
                 console.log(paginasWorkerFinal)
                 var data = {
-                    buffer: sharedArrayBuffer,
+                    buffer: filmesBuscados,
                     index: 0,
                     pagInicial: 1,
                     pagFinal: pagFinalInicial,
@@ -207,18 +216,61 @@
                         data.index = 40000 * (data.pagInicial-1)
                     }
                 }
+                setTimeout(() => {resolve('Operação concluída com sucesso!');}, 10000);
+            });
+            const resultado = await minhaPromessa;
+
+            // Isso será executado somente depois que a Promessa for resolvida
+            flag = 1
+        }
+
+        buscaDados()
+        async function fazerRecomendacao(){
+            workers2 = []
+            console.log("Aqui começa a Recomendação aaaaaaaaaaaaaaaaaaaaaaaaa")
+            const minhaPromessa = new Promise((resolve) => {   
+                for (let i = 0; i < numWorkers; i++) {
+                    const worker = new Worker('worker2.js');
+                    workers2.push(worker);
+                }
+            
+                const div = Math.ceil(numPaginas/numWorkers)
+                let pagFinalInicial = div
+                let paginasWorkerFinal = numPaginas - (div*(numWorkers-1))
+                var data = {
+                    bufferFilmes: filmesBuscados,
+                    bufferResultados: recomendacaoFilmes,
+                    index: 0,
+                    pagInicial: 1,
+                    pagFinal: pagFinalInicial,
+                    filmesSelecionados: filmesSelecionados,
+                };
+                console.log(workers2)
+                for (let i = 0; i < numWorkers; i++) {
+                    console.log("Worker" + i)
+                    console.log(div)
+                    console.log("Index:"+data.index)
+                    console.log("Pagina Inicial:"+data.pagInicial)
+                    console.log("Pagina Final:"+data.pagFinal)
+                    workers2[i].postMessage(data);
+                    console.log("Cheguei aqui, aqui tambem")
+                    if(i == (numWorkers-2)){
+                        data.pagInicial += div
+                        data.pagFinal += paginasWorkerFinal
+                        data.index = 40000 * (data.pagInicial-1)
+                    }else{
+                        data.pagInicial += div
+                        data.pagFinal += div
+                        data.index = 40000 * (data.pagInicial-1)
+                    }
+                }
                 resolve("Trabalho concluído!");
             });
             const resultado = await minhaPromessa;
 
             // Isso será executado somente depois que a Promessa for resolvida
-            console.log("To Aqui")
-            let view = new Uint8Array(sharedArrayBuffer);
-            console.log("To Aqui aaaeeeeee")
-            console.log(view)
         }
 
-        buscaDados()
     </script>
 
 </body>

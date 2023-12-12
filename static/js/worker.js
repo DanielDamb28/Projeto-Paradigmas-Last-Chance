@@ -18,8 +18,12 @@ function fetchPagPorNum(page, posicaoBuffer, view) {
         .then(response => response.json())
         .then(data => {
             data.results.forEach(element => {
-                let string = element.title + " " + element.overview
-                string = string.replace(/[!"#$%&'()*+,-./:;<=>?@[\]^_`{|}~]/g, '')
+                let id = element.id
+                let title = element.title
+                let overview = element.overview
+                title = title.replace(/[!"#$%&'()*+,-./:;<=>?@[\]^_`{|}~]/g, '')
+                overview = overview.replace(/[!"#$%&'()*+,-./:;<=>?@[\]^_`{|}~]/g, '')
+                string = id + "&" + title + "#" + overview + '!'
                 let encoded = enc.encode(string);
                 encoded.forEach((element, i) =>
                     view[i + contador] = element

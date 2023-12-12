@@ -14,5 +14,10 @@ def index():
 def worker():
     return app.send_static_file('js/worker.js')
 
+@app.route('/worker2.js')
+@headers({'Cross-Origin-Opener-Policy': 'same-origin','Cross-Origin-Embedder-Policy': 'require-corp',})
+def worker2():
+    return app.send_static_file('js/worker2.js')
+
 if __name__ == '__main__':
     app.run(debug=True)
