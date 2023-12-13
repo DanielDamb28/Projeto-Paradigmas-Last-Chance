@@ -59,7 +59,7 @@
         const url = "https://api.themoviedb.org/3/discover/movie?api_key=cfdd431aa71175eab089ab96641cd816&include_adult=false&include_video=false&language=en-US&sort_by=popularity.desc&page=";
         const itensPorPagina = 20;
         const totalPages = 100;
-        const filmesSelecionados = new Array(5);
+        const filmesSelecionados = [];
         let contadorDeFilmesSelecionados = 0;
         var dadosDaAPI;
         let flag = 0
@@ -135,8 +135,7 @@
                 }
 
                 const item = dadosDaAPI.results.find(objeto => objeto.id == cells[0].innerText)
-                filmesSelecionados[contadorDeFilmesSelecionados] = item
-                contadorDeFilmesSelecionados++;
+                filmesSelecionados.push(item)
 
                 // Cria uma nova linha na tabela inferior excluindo o botão
                 const newRow = document.getElementById('itensSelecionados').insertRow();
@@ -166,14 +165,22 @@
         function removeItemDosSelecionas(row) {
 
             row.parentNode.removeChild(row);
+            idAProcurar = row.cells[0].innerHTML
+            var objetoEncontrado = filmesSelecionados.find(obj => obj.id === parseInt(idAProcurar))
+            if (objetoEncontrado) {
+                let indiceDoObjeto = filmesSelecionados.indexOf(objetoEncontrado);
+                filmesSelecionados.splice(indiceDoObjeto, 1);
+            }
             contadorDeFilmesSelecionados--;
         }
 
         $('#recomendacao').on('click', function () {
-            if (flag === 1) {
+            if (flag === 1 && filmesSelecionados.length > 0) {
                 fazerRecomendacao()
-            } else {
+            } else if(flag === 0){
                 alert("Filmes Sendo Buscados, espere no máximo 10 segundos")
+            } else {
+                alert("Selecione pelo menos 1 filme para fazer a recomendacao")
             }
         });
 
