@@ -11,7 +11,7 @@ self.onmessage = function (e) {
 };
 
 function fetchPagPorNum(page, posicaoBuffer, view) {
-    const url = "https://api.themoviedb.org/3/discover/movie?api_key=cfdd431aa71175eab089ab96641cd816&include_adult=false&include_video=false&language=pt-BR&sort_by=popularity.desc&page=" + page;
+    const url = "https://api.themoviedb.org/3/discover/movie?api_key=cfdd431aa71175eab089ab96641cd816&include_adult=false&include_video=false&language=en-US&sort_by=popularity.desc&page=" + page;
     const enc = new TextEncoder();
     let contador = posicaoBuffer
     fetch(url)
@@ -23,7 +23,7 @@ function fetchPagPorNum(page, posicaoBuffer, view) {
                 let overview = element.overview
                 title = title.replace(/[!"#$%&'()*+,-./:;<=>?@[\]^_`{|}~]/g, '')
                 overview = overview.replace(/[!"#$%&'()*+,-./:;<=>?@[\]^_`{|}~]/g, '')
-                string = id + "&" + title + "#" + overview + '!'
+                string = id + "&" + title + " # " + overview + '!'
                 let encoded = enc.encode(string);
                 encoded.forEach((element, i) =>
                     view[i + contador] = element

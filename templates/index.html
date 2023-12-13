@@ -56,7 +56,7 @@
     <script>
         const key = "1b3b9179";
         var paginaAtual = 1;
-        const url = "https://api.themoviedb.org/3/discover/movie?api_key=cfdd431aa71175eab089ab96641cd816&include_adult=false&include_video=false&language=pt-BR&sort_by=popularity.desc&page=";
+        const url = "https://api.themoviedb.org/3/discover/movie?api_key=cfdd431aa71175eab089ab96641cd816&include_adult=false&include_video=false&language=en-US&sort_by=popularity.desc&page=";
         const itensPorPagina = 20;
         const totalPages = 100;
         const filmesSelecionados = new Array(5);
@@ -65,7 +65,8 @@
         let flag = 0
 
         var filmesBuscados = new SharedArrayBuffer(8192000)
-        var recomendacaoFilmes = new SharedArrayBuffer(5000)
+        var recomendacaoFilmes = new SharedArrayBuffer(50000)
+        var recomendacoes = new Array(5)
 
         buscaDadosNaApiEPopulaTabela()
 
@@ -171,13 +172,15 @@
         $('#recomendacao').on('click', function () {
             if (flag === 1) {
                 fazerRecomendacao()
+            } else {
+                alert("Filmes Sendo Buscados, espere no máximo 10 segundos")
             }
         });
 
 
         workers = []
         numWorkers = 5
-        numPaginas = 5
+        numPaginas = 200
         async function buscaDados() {
             const minhaPromessa = new Promise((resolve) => {
                 // Criar workers
@@ -185,14 +188,10 @@
                     const worker = new Worker('worker.js');
                     workers.push(worker);
                 }
-                console.log(workers)
             
                 const div = Math.ceil(numPaginas/numWorkers)
-                console.log(div)
                 let pagFinalInicial = div
-                console.log(pagFinalInicial)
                 let paginasWorkerFinal = numPaginas - (div*(numWorkers-1))
-                console.log(paginasWorkerFinal)
                 var data = {
                     buffer: filmesBuscados,
                     index: 0,
@@ -200,11 +199,6 @@
                     pagFinal: pagFinalInicial,
                 };
                 for (let i = 0; i < numWorkers; i++) {
-                    console.log("Worker" + i)
-                    console.log(div)
-                    console.log("Index:"+data.index)
-                    console.log("Pagina Inicial:"+data.pagInicial)
-                    console.log("Pagina Final:"+data.pagFinal)
                     workers[i].postMessage(data);
                     if(i == (numWorkers-2)){
                         data.pagInicial += div
@@ -221,13 +215,13 @@
             const resultado = await minhaPromessa;
 
             // Isso será executado somente depois que a Promessa for resolvida
+            console.log("Busquei os dados")
             flag = 1
         }
 
         buscaDados()
         async function fazerRecomendacao(){
             workers2 = []
-            console.log("Aqui começa a Recomendação aaaaaaaaaaaaaaaaaaaaaaaaa")
             const minhaPromessa = new Promise((resolve) => {   
                 for (let i = 0; i < numWorkers; i++) {
                     const worker = new Worker('worker2.js');
@@ -240,35 +234,83 @@
                 var data = {
                     bufferFilmes: filmesBuscados,
                     bufferResultados: recomendacaoFilmes,
+                    indexResultados: 0,
                     index: 0,
                     pagInicial: 1,
                     pagFinal: pagFinalInicial,
                     filmesSelecionados: filmesSelecionados,
+                    
                 };
-                console.log(workers2)
                 for (let i = 0; i < numWorkers; i++) {
-                    console.log("Worker" + i)
-                    console.log(div)
-                    console.log("Index:"+data.index)
-                    console.log("Pagina Inicial:"+data.pagInicial)
-                    console.log("Pagina Final:"+data.pagFinal)
                     workers2[i].postMessage(data);
-                    console.log("Cheguei aqui, aqui tambem")
                     if(i == (numWorkers-2)){
                         data.pagInicial += div
                         data.pagFinal += paginasWorkerFinal
                         data.index = 40000 * (data.pagInicial-1)
+                        data.indexResultados += 2500
                     }else{
                         data.pagInicial += div
                         data.pagFinal += div
                         data.index = 40000 * (data.pagInicial-1)
+                        data.indexResultados += 2500
                     }
                 }
-                resolve("Trabalho concluído!");
+                console.log("Fazendo a Recomendacao")
+                setTimeout(() => {resolve('Operação concluída com sucesso!');}, 7000);
             });
             const resultado = await minhaPromessa;
 
             // Isso será executado somente depois que a Promessa for resolvida
+            decodificaEMonstraFilmesRecomendados()
+        }
+
+        function decodificaEMonstraFilmesRecomendados(){
+            let array = []
+            posicao = 0
+            const view = new Uint8Array(recomendacaoFilmes);
+            for(i = 0; i < (numWorkers*5); i++){
+                viewHere = view.slice(posicao, posicao + 499);
+
+                const specialChar = '!'.charCodeAt(0);
+                const specialCharIndex = Array.from(viewHere).indexOf(specialChar);
+        
+                const dec = new TextDecoder();
+                decoded = viewHere.slice(0, specialCharIndex)
+                let string = dec.decode(decoded);
+        
+                const idChar = '&'.charCodeAt(0);
+                const idIndex = Array.from(viewHere).indexOf(idChar);
+                id = string.slice(0, idIndex)
+                string = string.slice(idIndex + 1)
+        
+                const titleChar = '#'.charCodeAt(0);
+                let titleIndex = (Array.from(viewHere).indexOf(titleChar)) - idIndex - 1;
+        
+                title = string.slice(0, titleIndex)
+                let contador = 0;
+                titleIndex = titleIndex - contador
+                title = string.slice(0, titleIndex)
+                result = parseFloat(string.slice(titleIndex + 1))
+                const data = {
+                    filmeId: id,
+                    filmeTitle: title,
+                    filmeResult: result,
+                }
+                array.push(data);
+                posicao += 500
+            }
+
+            const compararPorResultado = (a, b) => a.filmeResult - b.filmeResult;
+            const arrayOrdenado = array.sort(compararPorResultado);
+            for(i = 0; i < 5; i++){
+                recomendacoes[i] = arrayOrdenado[i].filmeTitle.replace("#", "")
+            }
+            let string = "Recomendacoes \n"
+            recomendacoes.forEach((element, i)=>{
+                string = string + (i+1) + ": " + element + "\n"
+            })
+            console.log(string)
+            alert(string)
         }
 
     </script>

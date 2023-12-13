@@ -9,24 +9,28 @@ self.onmessage = function (e) {
     let pageFinal = e.data.pagFinal;
     let posicaoBuffer = e.data.index;
     let filmes = e.data.filmesSelecionados;
+    let keys = []
+    filmes.forEach(element => {
+        if (element.id != undefined)
+            keys.push(element.id)
+    })
+    let posicaoResultados = e.data.indexResultados
 
     for (let i = pageInicial; i <= pageFinal; i++) {
         let info = buscaInformacoesDoBuffer(posicaoBuffer, view1, posicaoBuffer)
-        fazerCalculosDeDistanciaEuclidiana(filmes, arrayResultados, info)
+        fazerCalculosDeDistanciaEuclidiana(filmes, arrayResultados, info, keys)
+
         posicaoBuffer = posicaoBuffer + 40000
     }
     const compararPorResultado = (a, b) => a.result - b.result;
-
-    // Ordena o array com base na função de comparação
     const dataOrdenado = arrayResultados.sort(compararPorResultado);
-    console.log(dataOrdenado)
+    passarResultadosDoArrayParaOSharedBuffer(dataOrdenado, view2, posicaoResultados)
 
 };
 
 function buscaInformacoesDoBuffer(posicaoBuffer, view, posicaoBuffer) {
     let array = []
     posicao = posicaoBuffer
-    var letrasComAcento = /[áéíóúãõâêîôûàèìòùäëïöü]/gi;
     for (i = 0; i < 20; i++) {
         viewHere = view.slice(posicao, posicao + 1999);
 
@@ -46,14 +50,6 @@ function buscaInformacoesDoBuffer(posicaoBuffer, view, posicaoBuffer) {
         let titleIndex = (Array.from(viewHere).indexOf(titleChar)) - idIndex - 1;
 
         title = string.slice(0, titleIndex)
-        let contador = 0;
-        [title].forEach(caracter => {
-            if (letrasComAcento.test(caracter)) {
-                contador++;
-            }
-        });
-        titleIndex = titleIndex - contador
-        title = string.slice(0, titleIndex)
         overview = string.slice(titleIndex + 1)
 
         const data = {
@@ -67,25 +63,26 @@ function buscaInformacoesDoBuffer(posicaoBuffer, view, posicaoBuffer) {
     return array
 }
 
-function fazerCalculosDeDistanciaEuclidiana(filmesSelecionados, array, info) {
+function fazerCalculosDeDistanciaEuclidiana(filmesSelecionados, array, info, keys) {
     filmes = ""
     filmesSelecionados.forEach(element => {
         filmes += element.title + " " + element.overview
     })
     filmes = tratarSentenca(filmes)
     filmes = createBagOfWords(filmes)
-    //console.log(info)
     info.forEach((element) => {
         text = element.filmeTitle + " " + element.filmeOverview
-        text = tratarSentenca(text)
-        text = createBagOfWords(text)
-        resultado = distanciaEuclidiana(text, filmes)
-        data = {
-            id: element.filmeId,
-            titulo: element.filmeTitle,
-            result: resultado,
+        if (text.length > 50 && !keys.includes(parseInt(element.filmeId, 10))) {
+            text = tratarSentenca(text)
+            text = createBagOfWords(text)
+            resultado = distanciaEuclidiana(text, filmes)
+            data = {
+                id: element.filmeId,
+                titulo: element.filmeTitle,
+                result: resultado,
+            }
+            array.push(data)
         }
-        array.push(data)
     })
 }
 
@@ -97,7 +94,7 @@ function tratarSentenca(sentence) {
 }
 
 function retiraStopWords(sentence) {
-    const stopWords = ["-", "de", "a", "o", "que", "e", "do", "da", "em", "um", "para", "é", "com", "não", "uma", "os", "no", "se", "na", "por", "mais", "as", "dos", "como", "mas", "ao", "ele", "das", "à", "seu", "sua", "ou", "quando", "muito", "nos", "já", "eu", "também", "só", "pelo", "pela", "até", "isso", "ela", "entre", "depois", "sem", "mesmo", "aos", "seus", "quem", "nas", "me", "esse", "eles", "você", "essa", "num", "nem", "suas", "meu", "às", "minha", "numa", "pelos", "elas", "qual", "nós", "lhe", "deles", "essas", "esses", "pelas", "este", "dele", "tu", "te", "vocês", "vos", "lhes", "meus", "minhas", "teu", "tua", "teus", "tuas", "nosso", "nossa", "nossos", "nossas", "dela", "delas", "esta", "estes", "estas", "aquele", "aquela", "aqueles", "aquelas", "isto", "aquilo", "estou", "está", "estamos", "estão", "estive", "esteve", "estivemos", "estiveram", "estava", "estávamos", "estavam", "estivera", "estivéramos", "esteja", "estejamos", "estejam", "estivesse", "estivéssemos", "estivessem", "estiver", "estivermos", "estiverem", "hei", "há", "havemos", "hão", "houve", "houvemos", "houveram", "houvera", "houvéramos", "haja", "hajamos", "hajam", "houvesse", "houvéssemos", "houvessem", "houver", "houvermos", "houverem", "houverei", "houverá", "houveremos", "houverão", "houveria", "houveríamos", "houveriam", "sou", "somos", "são", "era", "éramos", "eram", "fui", "foi", "fomos", "foram", "fora", "fôramos", "seja", "sejamos", "sejam", "fosse", "fôssemos", "fossem", "for", "formos", "forem", "serei", "será", "seremos", "serão", "seria", "seríamos", "seriam", "tenho", "tem", "temos", "tém", "tinha", "tínhamos", "tinham", "tive", "teve", "tivemos", "tiveram", "tivera", "tivéramos", "tenha", "tenhamos", "tenham", "tivesse", "tivéssemos", "tivessem", "tiver", "tivermos", "tiverem"];
+    const stopWords = ["#", "de", "a", "o", "que", "e", "do", "da", "em", "um", "para", "é", "com", "não", "uma", "os", "no", "se", "na", "por", "mais", "as", "dos", "como", "mas", "ao", "ele", "das", "à", "seu", "sua", "ou", "quando", "muito", "nos", "já", "eu", "também", "só", "pelo", "pela", "até", "isso", "ela", "entre", "depois", "sem", "mesmo", "aos", "seus", "quem", "nas", "me", "esse", "eles", "você", "essa", "num", "nem", "suas", "meu", "às", "minha", "numa", "pelos", "elas", "qual", "nós", "lhe", "deles", "essas", "esses", "pelas", "este", "dele", "tu", "te", "vocês", "vos", "lhes", "meus", "minhas", "teu", "tua", "teus", "tuas", "nosso", "nossa", "nossos", "nossas", "dela", "delas", "esta", "estes", "estas", "aquele", "aquela", "aqueles", "aquelas", "isto", "aquilo", "estou", "está", "estamos", "estão", "estive", "esteve", "estivemos", "estiveram", "estava", "estávamos", "estavam", "estivera", "estivéramos", "esteja", "estejamos", "estejam", "estivesse", "estivéssemos", "estivessem", "estiver", "estivermos", "estiverem", "hei", "há", "havemos", "hão", "houve", "houvemos", "houveram", "houvera", "houvéramos", "haja", "hajamos", "hajam", "houvesse", "houvéssemos", "houvessem", "houver", "houvermos", "houverem", "houverei", "houverá", "houveremos", "houverão", "houveria", "houveríamos", "houveriam", "sou", "somos", "são", "era", "éramos", "eram", "fui", "foi", "fomos", "foram", "fora", "fôramos", "seja", "sejamos", "sejam", "fosse", "fôssemos", "fossem", "for", "formos", "forem", "serei", "será", "seremos", "serão", "seria", "seríamos", "seriam", "tenho", "tem", "temos", "tém", "tinha", "tínhamos", "tinham", "tive", "teve", "tivemos", "tiveram", "tivera", "tivéramos", "tenha", "tenhamos", "tenham", "tivesse", "tivéssemos", "tivessem", "tiver", "tivermos", "tiverem"];
     const palavras = sentence.split(/\s+/);
     const resultado = palavras.filter(palavra => !stopWords.includes(palavra.toLowerCase()));
     const sentencaSemStopWords = resultado.join(' ');
@@ -124,11 +121,32 @@ function distanciaEuclidiana(text, filmes) {
     chaves2 = Object.keys(filmes)
     set = new Set([...chaves1, ...chaves2])
     set.forEach(key => {
-        const valor1 = text[key] || 0;
-        const valor2 = filmes[key] || 0;
+        const valor1 = text[key] ?? 0;
+        const valor2 = filmes[key] ?? 0;
+        if (valor1 === 0 || valor2 === 0) {
+            sum += 5
+        }
+        if (valor1 > 0 && valor2 > 0) {
+            sum -= 5
+        }
         sum += Math.pow(valor1 - valor2, 2);
     })
-    console.log("Soma: " + sum)
     sum = Math.sqrt(sum)
     return sum
+}
+
+function passarResultadosDoArrayParaOSharedBuffer(arrayResultados, view, posicaoResultados) {
+    const enc = new TextEncoder();
+    for (i = 0; i < 5; i++) {
+
+        id = arrayResultados[i].id
+        title = arrayResultados[i].titulo
+        result = arrayResultados[i].result
+        string = id + "&" + title + "#" + result + '!'
+        let encoded = enc.encode(string);
+        encoded.forEach((element, i) =>
+            view[i + posicaoResultados] = element
+        );
+        posicaoResultados += 500
+    }
 }
